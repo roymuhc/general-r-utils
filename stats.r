@@ -11,6 +11,7 @@
 ## summarize.1w.cont() -- Function summarizes continuous variables (1-way analysis)
 ## fn.format.pval() -- Function formats p-values according to accepted standards
 ## summarize.2w.cont() -- Function summarizes continuous variables (2-way analysis) and computes p-values
+## fn.robust.fisher() --Function performs a robust version of the Fisher test function by handeling errors and returning NAs instead of crashing
 ## fn.summarize.2w.bin() -- Sub-routine for the function "summarize.2w.disc" defined below (2-way analysis)
 ## fn.summarize.2w.cat() -- Sub-routine for the function "summarize.2w.disc" defined below (2-way analysis)
 ## summarize.2w.disc() -- Function calls the above two subroutines to summarize discrete variables (2-way analysis)
@@ -196,17 +197,17 @@ fn.format.pval <- function(x, digits=3)
 # digits: precision of p-value
 {
 	## If the p-value is greater than the maximum precision, display as is at that level of precision
-	if (x >= 1/(10^digits))
+	if (!is.na(x) & x >= 1/(10^digits))
 	{
 		return(format(round(x, digits), scientific=FALSE))
 	}
 	## Else if the p-value is smaller than the maximum precision, display as ">" the max precision
-	else if (x < 1/(10^digits))
+	else if (!is.na(x) & x < 1/(10^digits))
 	{
 		return(paste("<" , 1/(10^digits), sep=" "))
 	}
 	## Else there is an error
-	else return(NA)
+	else return("-")
 }
 
 ####
@@ -317,6 +318,22 @@ summarize.2w.cont <- function(x, vars, byvar, sigdig=3, digits=2, digits.p=3)
 }
 
 ####
+## Function performs a robust version of the Fisher test function by handeling errors and returning NAs instead of crashing
+####
+fn.robust.fisher <- function(x, var, byvar, B)
+# Function returns the results of the Fisher test if there are not errors, and returns NAs if there are errors
+# The most common error is when either "var" or "byvar" have < 2 levels, leading to the impossibility of performing the test
+# x: data frame object
+# var: name of logical/factor variables
+# byvar: name of the stratifying variable (logical or factor)
+# B: Number of bootstrap replicates for Fisher approx.
+{
+	tryCatch(fisher.test(x[[var]], x[[byvar]], simulate.p.value=TRUE, B=B),
+			 error=function(e) {list(p.value=NA, alternative="Error", method="Need >1 level per variable")}
+			)
+}
+
+####
 ## Sub-routine for the function "summarize.2w.disc" defined below (2-way analysis)
 ####
 fn.summarize.2w.bin <- function(x, vars, byvar, digits=0, digits.p=3, B=1e3)
@@ -363,7 +380,7 @@ fn.summarize.2w.bin <- function(x, vars, byvar, digits=0, digits.p=3, B=1e3)
 	for (var in vars)
 	{
 		## Perform Fisher's exact test for var1 vs. var2
-		test <- fisher.test(x[[var]], x[[byvar]], simulate.p.value=TRUE, B=B) ## Only uses simulation-based approx. when table is larger than 2 by 2
+		test <- fn.robust.fisher(x=x, var=var, byvar=byvar, B=B) ## Only uses simulation-based approx. when table is larger than 2 by 2
 		## Format results
 		tmp <- data.frame(list(CAT = var,
 							   BY = byvar,
@@ -434,7 +451,7 @@ fn.summarize.2w.cat <- function(x, vars, byvar, digits=0, digits.p=3, B=1e3)
 	for (var in vars)
 	{
 		## Perform Fisher's exact test for var1 vs. var2
-		test <- fisher.test(x[[var]], x[[byvar]], simulate.p.value=TRUE, B=B) ## Only uses simulation-based approx. when table is larger than 2 by 2
+		test <- fn.robust.fisher(x=x, var=var, byvar=byvar, B=B) ## Only uses simulation-based approx. when table is larger than 2 by 2
 		## Format results
 		tmp <- data.frame(list(REF = var,
 							   BY = byvar,
@@ -488,10 +505,13 @@ summarize.2w.disc <- function(x, vars, byvar, digits=0, digits.p=3, B=1e3)
 	
 	## Count number of observations in each stratum (uses rownames vector as basis, by default. To check if it can lead to issues. Prefered this to using "ID")
 	t0 <- as.data.frame(t(tapply(rownames(x), x[[byvar]], length)))
-	## Format frequencies
+	## Format frequencies (and drop columns with length = NA)
 	for (name in names(t0))
 	{
-		t0[[name]] <- format(t0[[name]], big.mark=",")
+		## If length is NA, drop column
+		if (is.na(t0[[name]])) t0[[name]] <- NULL
+		## Else, format value
+		else t0[[name]] <- format(t0[[name]], big.mark=",")
 	}
 	## Change names to match with above col names
 	names(t0) <- paste(names(t0),"FREQ_PERC",sep=".")
