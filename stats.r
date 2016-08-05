@@ -19,7 +19,7 @@
 
 ####
 ## NOTE: In order to successfully export these tables to CSV, you need to call write table with these options:
-## |> write.table(x=table, file=paste(OUTPATH, "table.txt", sep="/"), sep="\t", eol="\n", dec=".", quote=TRUE, col.names=TRUE, row.names=FALSE)
+## |> write.table(x=table, file=paste(OUTPATH, "table.csv", sep="/"), sep=",", eol="\n", dec=".", quote=TRUE, col.names=TRUE, row.names=FALSE)
 ####
 
 ####
@@ -40,7 +40,7 @@ fn.summarize.1w.bin <- function(x, vars, digits=0)
 		## Summarize binary variable
 		tmp <- data.frame(list(REF=var,
 							   CAT=var,
-							   FREQ=format(sum(as.numeric(x[[var]])), big.mark=","),
+							   FREQ=format(sum(as.numeric(x[[var]])), big.mark=" "),
 							   PERC=paste0("(",
 										   format(round(100*(sum(as.numeric(x[[var]]))/length(as.numeric(x[[var]]))), digits), nsmall=digits),
 										   "%)")
@@ -84,7 +84,7 @@ fn.summarize.1w.cat <- function(x, vars, digits=0)
 		tmp <- cbind(CAT, tmp)
 		rownames(tmp) <- NULL
 		## Make FREQ col into a character variable with comma format
-		tmp <- within( tmp, FREQ <- format(FREQ, big.mark=",") )
+		tmp <- within( tmp, FREQ <- format(FREQ, big.mark=" ") )
 		## Merge freq and perc into one column
 		tmp <- within( tmp, FREQ_PERC <- paste(FREQ, PERC, sep=" ") )
 		tmp["FREQ"] <- NULL
@@ -128,7 +128,7 @@ summarize.1w.disc <- function(x, vars, digits=0)
 	t2 <- fn.summarize.1w.bin(x=x, vars=binlist, digits=digits)
 	
 	## Add a row with the total sample count
-	t0 <- data.frame(list(REF="NOBS", CAT="", FREQ_PERC=format(nrow(x), big.mark=",")), stringsAsFactors=FALSE)
+	t0 <- data.frame(list(REF="NOBS", CAT="", FREQ_PERC=format(nrow(x), big.mark=" ")), stringsAsFactors=FALSE)
 	
 	table <- rbind(t0, t1, t2)
 	return(table)
@@ -152,29 +152,29 @@ summarize.1w.cont <- function(x, vars, sigdig=3, digits=2)
 	{
 		## Summarize continuous variable
 		tmp <- data.frame(list(REF = var,
-							   MEAN_SD_MD = paste(format(round(mean(x[[var]], na.rm=TRUE), digits), scientific=FALSE, big.mark=","),
+							   MEAN_SD_MD = paste(format(round(mean(x[[var]], na.rm=TRUE), digits), scientific=FALSE, big.mark=" "),
 												  " \U00B1 ",
-												  format(round(sd(x[[var]], na.rm=TRUE), digits), scientific=FALSE, big.mark=","),
+												  format(round(sd(x[[var]], na.rm=TRUE), digits), scientific=FALSE, big.mark=" "),
 												  " [",
-												  format(round(median(x[[var]], na.rm=TRUE), digits), scientific=FALSE, big.mark=","),
+												  format(round(median(x[[var]], na.rm=TRUE), digits), scientific=FALSE, big.mark=" "),
 												  "]",
 												  sep=""),
-							   MEDIAN_IQR = paste(format(round(median(x[[var]], na.rm=TRUE), digits), scientific=FALSE, big.mark=","),
+							   MEDIAN_IQR = paste(format(round(median(x[[var]], na.rm=TRUE), digits), scientific=FALSE, big.mark=" "),
 												  " (",
-												  format(round(as.numeric(quantile(x[[var]], probs=0.25, na.rm=TRUE)), digits), scientific=FALSE, big.mark=","),
+												  format(round(as.numeric(quantile(x[[var]], probs=0.25, na.rm=TRUE)), digits), scientific=FALSE, big.mark=" "),
 												  " ; ",
-												  format(round(as.numeric(quantile(x[[var]], probs=0.75, na.rm=TRUE)), digits), scientific=FALSE, big.mark=","),
+												  format(round(as.numeric(quantile(x[[var]], probs=0.75, na.rm=TRUE)), digits), scientific=FALSE, big.mark=" "),
 												  ")",
 												  sep=""),
-							   MEAN = format(signif(mean(x[[var]], na.rm=TRUE), sigdig), scientific=FALSE, big.mark=","),
-							   SD = format(signif(sd(x[[var]], na.rm=TRUE), sigdig), scientific=FALSE, big.mark=","),
-							   MIN = format(signif(min(x[[var]], na.rm=TRUE), sigdig), scientific=FALSE, big.mark=","),
-							   Q1 = format(signif(as.numeric(quantile(x[[var]], probs=0.25, na.rm=TRUE)), sigdig), scientific=FALSE, big.mark=","),
-							   MEDIAN = format(signif(as.numeric(quantile(x[[var]], probs=0.5, na.rm=TRUE)), sigdig), scientific=FALSE, big.mark=","),
-							   Q3 = format(signif(as.numeric(quantile(x[[var]], probs=0.75, na.rm=TRUE)), sigdig), scientific=FALSE, big.mark=","),
-							   MAX = format(signif(max(x[[var]], na.rm=TRUE), sigdig), scientific=FALSE, big.mark=","),
-							   N = format(length(x[!is.na(x[[var]]),][[var]]), big.mark=","),
-							   NAs = format(length(x[is.na(x[[var]]),][[var]]), big.mark=",")
+							   MEAN = format(signif(mean(x[[var]], na.rm=TRUE), sigdig), scientific=FALSE, big.mark=" "),
+							   SD = format(signif(sd(x[[var]], na.rm=TRUE), sigdig), scientific=FALSE, big.mark=" "),
+							   MIN = format(signif(min(x[[var]], na.rm=TRUE), sigdig), scientific=FALSE, big.mark=" "),
+							   Q1 = format(signif(as.numeric(quantile(x[[var]], probs=0.25, na.rm=TRUE)), sigdig), scientific=FALSE, big.mark=" "),
+							   MEDIAN = format(signif(as.numeric(quantile(x[[var]], probs=0.5, na.rm=TRUE)), sigdig), scientific=FALSE, big.mark=" "),
+							   Q3 = format(signif(as.numeric(quantile(x[[var]], probs=0.75, na.rm=TRUE)), sigdig), scientific=FALSE, big.mark=" "),
+							   MAX = format(signif(max(x[[var]], na.rm=TRUE), sigdig), scientific=FALSE, big.mark=" "),
+							   N = format(length(x[!is.na(x[[var]]),][[var]]), big.mark=" "),
+							   NAs = format(length(x[is.na(x[[var]]),][[var]]), big.mark=" ")
 							  ),
 						  stringsAsFactors=FALSE
 						 )
@@ -183,7 +183,7 @@ summarize.1w.cont <- function(x, vars, sigdig=3, digits=2)
 		rm(tmp)
 	}
 	## Add a row with the total sample count
-	t0 <- data.frame(list(REF="NOBS", MEAN_SD_MD=format(nrow(x), big.mark=","),MEDIAN_IQR="",MEAN="",SD="",MIN="",Q1="",MEDIAN="",Q3="",MAX="",N="",NAs=""), stringsAsFactors=FALSE)
+	t0 <- data.frame(list(REF="NOBS", MEAN_SD_MD=format(nrow(x), big.mark=" "),MEDIAN_IQR="",MEAN="",SD="",MIN="",Q1="",MEDIAN="",Q3="",MAX="",N="",NAs=""), stringsAsFactors=FALSE)
 	table <- rbind(t0, table)
 	return(table)
 }
@@ -231,25 +231,28 @@ summarize.2w.cont <- function(x, vars, byvar, sigdig=3, digits=2, digits.p=3)
 		## Define aggregation functions
 		myfun <- function(x)
 		{
-			c(MEAN_SD_MD = paste(format(round(mean(x, na.rm=TRUE), digits), scientific=FALSE, big.mark=","),
+			c(MEAN_SD_MD = ifelse(length(x[!is.na(x)])==0, "-", ## Return "-" if there are no observations to summarise
+						   paste(format(round(mean(x, na.rm=TRUE), digits), scientific=FALSE, big.mark=" "),
 							     " \U00B1 ",
-								 format(round(sd(x, na.rm=TRUE), digits), scientific=FALSE, big.mark=","),
+								 format(round(sd(x, na.rm=TRUE), digits), scientific=FALSE, big.mark=" "),
 								 " [",
-								 format(round(median(x, na.rm=TRUE), digits), scientific=FALSE, big.mark=","),
+								 format(round(median(x, na.rm=TRUE), digits), scientific=FALSE, big.mark=" "),
 								 "]",
-								 sep=""),
-			  MEDIAN_IQR = paste(format(round(median(x, na.rm=TRUE), digits), scientific=FALSE, big.mark=","),
+								 sep="")),
+			  MEDIAN_IQR = ifelse(length(x[!is.na(x)])==0, "-", ## Return "-" if there are no observations to summarise
+						   paste(format(round(median(x, na.rm=TRUE), digits), scientific=FALSE, big.mark=" "),
 								 " (",
-								 format(round(as.numeric(quantile(x, probs=0.25, na.rm=TRUE)), digits), scientific=FALSE, big.mark=","),
+								 format(round(as.numeric(quantile(x, probs=0.25, na.rm=TRUE)), digits), scientific=FALSE, big.mark=" "),
 								 " ; ",
-								 format(round(as.numeric(quantile(x, probs=0.75, na.rm=TRUE)), digits), scientific=FALSE, big.mark=","),
+								 format(round(as.numeric(quantile(x, probs=0.75, na.rm=TRUE)), digits), scientific=FALSE, big.mark=" "),
 								 ")",
-								 sep=""),
-			  MEAN = format(signif(mean(x, na.rm=TRUE), sigdig), scientific=FALSE, big.mark=","),
-			  SD = format(signif(sd(x, na.rm=TRUE), sigdig), scientific=FALSE, big.mark=","),
-			  MEDIAN = format(signif(median(x, na.rm=TRUE), sigdig), scientific=FALSE, big.mark=","),
-			  N = format(length(x[!is.na(x)]), big.mark=","),
-			  NAs = format(length(x[is.na(x)]), big.mark=",")
+								 sep="")),
+			  ## As above, return "-" if there are no observations to summarise
+			  MEAN = ifelse(length(x[!is.na(x)])==0, "-", format(signif(mean(x, na.rm=TRUE), sigdig), scientific=FALSE, big.mark=" ")),
+			  SD = ifelse(length(x[!is.na(x)])==0, "-", format(signif(sd(x, na.rm=TRUE), sigdig), scientific=FALSE, big.mark=" ")),
+			  MEDIAN = ifelse(length(x[!is.na(x)])==0, "-", format(signif(median(x, na.rm=TRUE), sigdig), scientific=FALSE, big.mark=" ")),
+			  N = format(length(x[!is.na(x)]), big.mark=" "),
+			  NAs = format(length(x[is.na(x)]), big.mark=" ")
 			 )
 		}
 		
@@ -275,11 +278,11 @@ summarize.2w.cont <- function(x, vars, byvar, sigdig=3, digits=2, digits.p=3)
 			test <- wilcox.test(as.formula(paste0(var,"~",byvar)), data=x, conf.int = TRUE)
 			tmp.test <- data.frame(list(REF = var,
 									    BY = byvar,
-										DIFF = paste(format(signif(test[["estimate"]][[1]], digits), scientific=FALSE, big.mark=","),
+										DIFF = paste(format(signif(test[["estimate"]][[1]], digits), scientific=FALSE, big.mark=" "),
 													 " (",
-													 format(signif(test[["conf.int"]][1], digits), scientific=FALSE, big.mark=","),
+													 format(signif(test[["conf.int"]][1], digits), scientific=FALSE, big.mark=" "),
 													 " ; ",
-													 format(signif(test[["conf.int"]][2], digits), scientific=FALSE, big.mark=","),
+													 format(signif(test[["conf.int"]][2], digits), scientific=FALSE, big.mark=" "),
 													 ")",
 													 sep=""),
 										pval = format(signif(test[["p.value"]], digits.p), scientific=FALSE),
@@ -511,7 +514,7 @@ summarize.2w.disc <- function(x, vars, byvar, digits=0, digits.p=3, B=1e3)
 		## If length is NA, drop column
 		if (is.na(t0[[name]])) t0[[name]] <- NULL
 		## Else, format value
-		else t0[[name]] <- format(t0[[name]], big.mark=",")
+		else t0[[name]] <- format(t0[[name]], big.mark=" ")
 	}
 	## Change names to match with above col names
 	names(t0) <- paste(names(t0),"FREQ_PERC",sep=".")
