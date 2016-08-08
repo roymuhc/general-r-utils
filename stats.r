@@ -275,7 +275,7 @@ summarize.2w.cont <- function(x, vars, byvar, sigdig=3, digits=2, digits.p=3)
 		## If only 2 levels, use Wiloxon
 		if (length(unique(x[[byvar]])) == 2)
 		{
-			test <- wilcox.test(as.formula(paste0(var,"~",byvar)), data=x, conf.int = TRUE)
+			test <- wilcox.test(as.formula(paste0(var,"~",byvar)), data=x, exact=FALSE, conf.int=TRUE)
 			tmp.test <- data.frame(list(REF = var,
 									    BY = byvar,
 										DIFF = paste(format(signif(test[["estimate"]][[1]], digits), scientific=FALSE, big.mark=" "),
