@@ -11,7 +11,8 @@
 ## summarize.1w.cont() -- Function summarizes continuous variables (1-way analysis)
 ## fn.format.pval() -- Function formats p-values according to accepted standards
 ## summarize.2w.cont() -- Function summarizes continuous variables (2-way analysis) and computes p-values
-## fn.robust.fisher() --Function performs a robust version of the Fisher test function by handeling errors and returning NAs instead of crashing
+## fn.safe.fisher() -- Function performs a safe version of the exact Fisher test function by handeling errors and returning NAs instead of crashing
+## fn.safe.chisq() -- Function performs a safe version of the chi square test function by handeling errors and returning NAs instead of crashing
 ## fn.summarize.2w.bin() -- Sub-routine for the function "summarize.2w.disc" defined below (2-way analysis)
 ## fn.summarize.2w.cat() -- Sub-routine for the function "summarize.2w.disc" defined below (2-way analysis)
 ## summarize.2w.disc() -- Function calls the above two subroutines to summarize discrete variables (2-way analysis)
@@ -321,25 +322,42 @@ summarize.2w.cont <- function(x, vars, byvar, sigdig=3, digits=2, digits.p=3)
 }
 
 ####
-## Function performs a robust version of the Fisher test function by handeling errors and returning NAs instead of crashing
+## Function performs a safe version of the exact Fisher test function by handeling errors and returning NAs instead of crashing
 ####
-fn.robust.fisher <- function(x, var, byvar, B)
-# Function returns the results of the Fisher test if there are not errors, and returns NAs if there are errors
+fn.safe.fisher <- function(x, var, byvar)
+# Function returns the results of the exact Fisher test if there are not errors, and returns NAs if there are errors
 # The most common error is when either "var" or "byvar" have < 2 levels, leading to the impossibility of performing the test
 # x: data frame object
 # var: name of logical/factor variables
 # byvar: name of the stratifying variable (logical or factor)
-# B: Number of bootstrap replicates for Fisher approx.
 {
-	tryCatch(fisher.test(x[[var]], x[[byvar]], simulate.p.value=TRUE, B=B),
+	tryCatch(fisher.test(x[[var]], x[[byvar]]),
 			 error=function(e) {list(p.value=NA, alternative="Error", method="Need >1 level per variable")}
+			)
+}
+
+####
+## Function performs a safe version of the chi square test function by handeling errors and returning NAs instead of crashing
+####
+fn.safe.chisq <- function(x, var, byvar)
+# Function returns the results of the chi square test if there are not errors, and returns NAs if there are errors
+# Function also outputs any relevant warning messages for hypothesis test report
+# The most common error is when either "var" or "byvar" have < 2 levels, leading to the impossibility of performing the test
+# The most common warning is when the chi square approximation is not appropriate, such as when the expected counts are very low
+# x: data frame object
+# var: name of logical/factor variables
+# byvar: name of the stratifying variable (logical or factor)
+{
+	tryCatch(chisq.test(x[[var]], x[[byvar]]),
+			 error=function(e) {list(p.value=NA, alternative="Error", method="Need >1 level per variable")},
+			 warning=function(w) {test <- chisq.test(x[[var]], x[[byvar]]); test$WarningMsg <- conditionMessage(w); return(test)}
 			)
 }
 
 ####
 ## Sub-routine for the function "summarize.2w.disc" defined below (2-way analysis)
 ####
-fn.summarize.2w.bin <- function(x, vars, byvar, digits=0, digits.p=3, B=1e3)
+fn.summarize.2w.bin <- function(x, vars, byvar, digits=0, digits.p=3)
 # Function counts TRUE instances and reports them as a percentage of all instances, but stratified
 # Returns a table containing the statistics in a form that can be linked in Excel
 # x: data frame object
@@ -347,7 +365,6 @@ fn.summarize.2w.bin <- function(x, vars, byvar, digits=0, digits.p=3, B=1e3)
 # byvar: name of the stratifying variable (logical or factor)
 # digits: number of digits to display for percentage (default=0)
 # digits.p: number of digits to display for p-values (default=3)
-# B: Number of bootstrap replicates for Fisher approx. (default=1000)
 {
 	## Initialize the table
 	table <- data.frame()
@@ -382,15 +399,24 @@ fn.summarize.2w.bin <- function(x, vars, byvar, digits=0, digits.p=3, B=1e3)
 	## Loop over the list of variables
 	for (var in vars)
 	{
-		## Perform Fisher's exact test for var1 vs. var2
-		test <- fn.robust.fisher(x=x, var=var, byvar=byvar, B=B) ## Only uses simulation-based approx. when table is larger than 2 by 2
+		## Check if table is 2 by 2 (if so, then use Fisher's exact test)
+		if ( all(length(unique(x[[var]]))==2, length(unique(x[[byvar]]))==2) )
+		{
+			test <- fn.safe.fisher(x=x, var=var, byvar=byvar)
+		}
+		## Otherwise, use the chi square test
+		else
+		{
+			test <- fn.safe.chisq(x=x, var=var, byvar=byvar)
+		}
 		## Format results
 		tmp <- data.frame(list(CAT = var,
 							   BY = byvar,
 							   pval = format(signif(test[["p.value"]], digits.p), scientific=FALSE),
 							   pval_fmt = fn.format.pval(test[["p.value"]], digits=digits.p),
-							   ALT = test[["alternative"]],
-							   TEST = test[["method"]]
+							   ALT = "-",
+							   TEST = test[["method"]],
+							   WARNING = ifelse("WarningMsg" %in% names(test), test[["WarningMsg"]], "-")
 							   ), 
 						  stringsAsFactors=FALSE
 						 )
@@ -410,7 +436,7 @@ fn.summarize.2w.bin <- function(x, vars, byvar, digits=0, digits.p=3, B=1e3)
 ####
 ## Sub-routine for the function "summarize.2w.disc" defined below (2-way analysis)
 ####
-fn.summarize.2w.cat <- function(x, vars, byvar, digits=0, digits.p=3, B=1e3)
+fn.summarize.2w.cat <- function(x, vars, byvar, digits=0, digits.p=3)
 # Function counts number of instances in all distinct categories and reports them as a percentage of all instances, but stratified
 # Returns a table containing the statistics in a form that can be linked in Excel
 # x: data frame object
@@ -418,7 +444,6 @@ fn.summarize.2w.cat <- function(x, vars, byvar, digits=0, digits.p=3, B=1e3)
 # byvar: name of the stratifying variable (logical or factor)
 # digits: number of digits to display for percentage (default=0)
 # digits.p: number of digits to display for p-values (default=3)
-# B: Number of bootstrap replicates for Fisher approx. (default=1000)
 {
 	## Initialize the table
 	table <- data.frame()
@@ -453,15 +478,24 @@ fn.summarize.2w.cat <- function(x, vars, byvar, digits=0, digits.p=3, B=1e3)
 	## Loop over the list of variables
 	for (var in vars)
 	{
-		## Perform Fisher's exact test for var1 vs. var2
-		test <- fn.robust.fisher(x=x, var=var, byvar=byvar, B=B) ## Only uses simulation-based approx. when table is larger than 2 by 2
+		## Check if table is 2 by 2 (if so, then use Fisher's exact test)
+		if ( all(length(unique(x[[var]]))==2, length(unique(x[[byvar]]))==2) )
+		{
+			test <- fn.safe.fisher(x=x, var=var, byvar=byvar)
+		}
+		## Otherwise, use the chi square test
+		else
+		{
+			test <- fn.safe.chisq(x=x, var=var, byvar=byvar)
+		}
 		## Format results
 		tmp <- data.frame(list(REF = var,
 							   BY = byvar,
 							   pval = format(signif(test[["p.value"]], digits.p), scientific=FALSE),
 							   pval_fmt = fn.format.pval(test[["p.value"]], digits=digits.p),
-							   ALT = test[["alternative"]],
-							   TEST = test[["method"]]
+							   ALT = "-',
+							   TEST = test[["method"]],
+							   WARNING = ifelse("WarningMsg" %in% names(test), test[["WarningMsg"]], "-")
 							   ), 
 						  stringsAsFactors=FALSE
 						 )
@@ -481,14 +515,13 @@ fn.summarize.2w.cat <- function(x, vars, byvar, digits=0, digits.p=3, B=1e3)
 ####
 ## Function calls the above two subroutines to summarize discrete variables (2-way analysis)
 ####
-summarize.2w.disc <- function(x, vars, byvar, digits=0, digits.p=3, B=1e3)
+summarize.2w.disc <- function(x, vars, byvar, digits=0, digits.p=3)
 # Function performs analyses defined in the two associated sub-routines and returns a table as described above
 # x: data frame object
 # vars: vector containing list of discrete variables (factor and logical)
 # byvar: name of the variable by which we want to stratify
 # digits: number of digits to display for percentage (default=0)
 # digits.p: number of digits to display for p-value (default=3)
-# B: number of bootstrap replications for larger than 2 by 2 tables (Fisher's approx. test, default=1000)
 {
 	## Initialize categorical list
 	catlist <- c()
@@ -503,8 +536,8 @@ summarize.2w.disc <- function(x, vars, byvar, digits=0, digits.p=3, B=1e3)
 	}
 	
 	## Summarize categorical vars and binary vars and return results
-	t1 <- fn.summarize.2w.cat(x=x, vars=catlist, byvar=byvar, digits=digits, digits.p=digits.p, B=B)
-	t2 <- fn.summarize.2w.bin(x=x, vars=binlist, byvar=byvar, digits=digits, digits.p=digits.p, B=B)
+	t1 <- fn.summarize.2w.cat(x=x, vars=catlist, byvar=byvar, digits=digits, digits.p=digits.p)
+	t2 <- fn.summarize.2w.bin(x=x, vars=binlist, byvar=byvar, digits=digits, digits.p=digits.p)
 	
 	## Count number of observations in each stratum (uses rownames vector as basis, by default. To check if it can lead to issues. Prefered this to using "ID")
 	t0 <- as.data.frame(t(tapply(rownames(x), x[[byvar]], length)))
@@ -519,7 +552,7 @@ summarize.2w.disc <- function(x, vars, byvar, digits=0, digits.p=3, B=1e3)
 	## Change names to match with above col names
 	names(t0) <- paste(names(t0),"FREQ_PERC",sep=".")
 	## Add columns to match format as well
-	t0 <- data.frame(list(REF="NOBS", BY=byvar, CAT=""), t0, list(pval="", pval_fmt="", ALT="", TEST=""), stringsAsFactors=FALSE)
+	t0 <- data.frame(list(REF="NOBS", BY=byvar, CAT=""), t0, list(pval="", pval_fmt="", ALT="", TEST="", WARNING=""), stringsAsFactors=FALSE)
 	
 	table <- rbind(t0, t1, t2)
 	return(table)
