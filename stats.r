@@ -414,7 +414,7 @@ fn.summarize.2w.bin <- function(x, vars, byvar, digits=0, digits.p=3)
 							   BY = byvar,
 							   pval = format(signif(test[["p.value"]], digits.p), scientific=FALSE),
 							   pval_fmt = fn.format.pval(test[["p.value"]], digits=digits.p),
-							   ALT = test[["alternative"]],
+							   ALT = "-",
 							   TEST = test[["method"]],
 							   WARNING = ifelse("WarningMsg" %in% names(test), test[["WarningMsg"]], "-")
 							   ), 
@@ -493,7 +493,7 @@ fn.summarize.2w.cat <- function(x, vars, byvar, digits=0, digits.p=3)
 							   BY = byvar,
 							   pval = format(signif(test[["p.value"]], digits.p), scientific=FALSE),
 							   pval_fmt = fn.format.pval(test[["p.value"]], digits=digits.p),
-							   ALT = test[["alternative"]],
+							   ALT = "-',
 							   TEST = test[["method"]],
 							   WARNING = ifelse("WarningMsg" %in% names(test), test[["WarningMsg"]], "-")
 							   ), 
