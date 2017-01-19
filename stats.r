@@ -5,11 +5,14 @@
 ####
 ## Contents:
 ## ---------
+## fn.fmt.decimals() -- Sub-routine for the function fn.smart.decimals defined below
+## fn.smart.decimals() -- Function calls the above subroutine to determine appropriate decimal places for formated numeric output
 ## fn.summarize.1w.bin() -- Sub-routine for the function "summarize.1w.disc" defined below (1-way analysis)
 ## fn.summarize.1w.cat() -- Sub-routine for the function "summarize.1w.disc" defined below (1-way analysis)
 ## summarize.1w.disc() -- Function calls the above two subroutines to summarize discrete variables (1-way analysis)
 ## summarize.1w.cont() -- Function summarizes continuous variables (1-way analysis)
 ## fn.format.pval() -- Function formats p-values according to accepted standards
+## fn.safe.kruskal() -- Function performs a safe version of the Kruskal-Wallis test function by handeling errors and returning NAs instead of crashing
 ## summarize.2w.cont() -- Function summarizes continuous variables (2-way analysis) and computes p-values
 ## fn.safe.fisher() -- Function performs a safe version of the exact Fisher test function by handeling errors and returning NAs instead of crashing
 ## fn.safe.chisq() -- Function performs a safe version of the chi square test function by handeling errors and returning NAs instead of crashing
@@ -22,6 +25,40 @@
 ## NOTE: In order to successfully export these tables to CSV, you need to call write table with these options:
 ## |> write.table(x=table, file=paste(OUTPATH, "table.csv", sep="/"), sep=",", eol="\n", dec=".", quote=TRUE, col.names=TRUE, row.names=FALSE)
 ####
+
+####
+## Sub-routine for the function fn.smart.decimals defined below
+####
+fn.fmt.decimals <- function(x, k) {
+# Function forces display of k digits after rounding to k digits
+# x: a numeric scalar
+# k: the number of digits to round to and the number of digits to display
+	format(round(x, k), nsmall=k, scientific=FALSE, big.mark=" ")
+}
+
+####
+## Function calls the above subroutine to determine appropriate decimal places for formated numeric output
+####
+fn.smart.decimals <- function(x, maxdig=2) {
+# Function determines how many digits to round to and display based on magnitude of numeric input
+# x: a numeric scalar
+# maxdig: maximum number of digits to allow (applies to x < 1 only) and defaul value is 2
+	if (is.na(x)) {
+		return(NA)
+	}
+	else if (x < 1) {
+		return(fn.fmt.decimals(x, maxdig))
+	}
+	else if (x < 10) {
+		return(fn.fmt.decimals(x, 2))
+	}
+	else if (x < 100) {
+		return(fn.fmt.decimals(x, 1))
+	}
+	else {
+		return(fn.fmt.decimals(x, 0))
+	}
+}
 
 ####
 ## Sub-routine for the function "summarize.1w.disc" defined below (1-way analysis)
@@ -43,7 +80,7 @@ fn.summarize.1w.bin <- function(x, vars, digits=0)
 							   CAT=var,
 							   FREQ=format(sum(as.numeric(x[[var]])), big.mark=" "),
 							   PERC=paste0("(",
-										   format(round(100*(sum(as.numeric(x[[var]]))/length(as.numeric(x[[var]]))), digits), nsmall=digits),
+										   trimws(format(round(100*(sum(as.numeric(x[[var]]))/length(as.numeric(x[[var]]))), digits), nsmall=digits)),
 										   "%)")
 							  ),
 						  stringsAsFactors=FALSE
@@ -76,7 +113,7 @@ fn.summarize.1w.cat <- function(x, vars, digits=0)
 	{
 		## Summarize categorical variable
 		tmp <- data.frame(list(FREQ=summary(x[[var]]),
-							   PERC=paste0("(", format(round(100*(summary(x[[var]])/sum(summary(x[[var]]))), digits), nsmall=digits), "%)")
+							   PERC=paste0("(", trimws(format(round(100*(summary(x[[var]])/sum(summary(x[[var]]))), digits), nsmall=digits)), "%)")
 							  ),
 						  stringsAsFactors=FALSE
 						 )
@@ -125,8 +162,20 @@ summarize.1w.disc <- function(x, vars, digits=0)
 	}
 	
 	## Summarize categorical vars and binary vars and return results
-	t1 <- fn.summarize.1w.cat(x=x, vars=catlist, digits=digits)
-	t2 <- fn.summarize.1w.bin(x=x, vars=binlist, digits=digits)
+	## if list is non-empty only
+	if (length(catlist) != 0) {
+		t1 <- fn.summarize.1w.cat(x=x, vars=catlist, digits=digits)
+	}
+	else {
+		t1 <- data.frame()
+	}
+	
+	if (length(binlist) != 0) {
+		t2 <- fn.summarize.1w.bin(x=x, vars=binlist, digits=digits)
+	}
+	else {
+		t2 <- data.frame()
+	}
 	
 	## Add a row with the total sample count
 	t0 <- data.frame(list(REF="NOBS", CAT="", FREQ_PERC=format(nrow(x), big.mark=" ")), stringsAsFactors=FALSE)
@@ -153,18 +202,18 @@ summarize.1w.cont <- function(x, vars, sigdig=3, digits=2)
 	{
 		## Summarize continuous variable
 		tmp <- data.frame(list(REF = var,
-							   MEAN_SD_MD = paste(format(round(mean(x[[var]], na.rm=TRUE), digits), scientific=FALSE, big.mark=" "),
+							   MEAN_SD_MD = paste(fn.smart.decimals(mean(x[[var]], na.rm=TRUE), digits),
 												  " \U00B1 ",
-												  format(round(sd(x[[var]], na.rm=TRUE), digits), scientific=FALSE, big.mark=" "),
+												  fn.smart.decimals(sd(x[[var]], na.rm=TRUE), digits),
 												  " [",
-												  format(round(median(x[[var]], na.rm=TRUE), digits), scientific=FALSE, big.mark=" "),
+												  fn.smart.decimals(median(x[[var]], na.rm=TRUE), digits),
 												  "]",
 												  sep=""),
-							   MEDIAN_IQR = paste(format(round(median(x[[var]], na.rm=TRUE), digits), scientific=FALSE, big.mark=" "),
+							   MEDIAN_IQR = paste(fn.smart.decimals(median(x[[var]], na.rm=TRUE), digits),
 												  " (",
-												  format(round(as.numeric(quantile(x[[var]], probs=0.25, na.rm=TRUE)), digits), scientific=FALSE, big.mark=" "),
+												  fn.smart.decimals(as.numeric(quantile(x[[var]], probs=0.25, na.rm=TRUE)), digits),
 												  " ; ",
-												  format(round(as.numeric(quantile(x[[var]], probs=0.75, na.rm=TRUE)), digits), scientific=FALSE, big.mark=" "),
+												  fn.smart.decimals(as.numeric(quantile(x[[var]], probs=0.75, na.rm=TRUE)), digits),
 												  ")",
 												  sep=""),
 							   MEAN = format(signif(mean(x[[var]], na.rm=TRUE), sigdig), scientific=FALSE, big.mark=" "),
@@ -212,6 +261,21 @@ fn.format.pval <- function(x, digits=3)
 }
 
 ####
+## Function performs a safe version of the Kruskal-Wallis test function by handeling errors and returning NAs instead of crashing
+####
+fn.safe.kruskal <- function(x, var, byvar)
+# Function returns the results of the Kruskal-Wallis test if there are not errors, and returns NAs if there are errors
+# The most common error is when all observations are in the same group, leading to the impossibility of performing the test
+# x: data frame object
+# var: name of logical/factor variables
+# byvar: name of the stratifying variable (logical or factor)
+{
+	tryCatch(kruskal.test(as.formula(paste0(var,"~",byvar)), data=x),
+			 error=function(e) {list(p.value=NA, alternative="Error", method="All observations are in the same group")}
+			)
+}
+
+####
 ## Function summarizes continuous variables (2-way analysis) and computes p-values
 ####
 summarize.2w.cont <- function(x, vars, byvar, sigdig=3, digits=2, digits.p=3)
@@ -233,19 +297,19 @@ summarize.2w.cont <- function(x, vars, byvar, sigdig=3, digits=2, digits.p=3)
 		myfun <- function(x)
 		{
 			c(MEAN_SD_MD = ifelse(length(x[!is.na(x)])==0, "-", ## Return "-" if there are no observations to summarise
-						   paste(format(round(mean(x, na.rm=TRUE), digits), scientific=FALSE, big.mark=" "),
+						   paste(fn.smart.decimals(mean(x, na.rm=TRUE), digits),
 							     " \U00B1 ",
-								 format(round(sd(x, na.rm=TRUE), digits), scientific=FALSE, big.mark=" "),
+								 fn.smart.decimals(sd(x, na.rm=TRUE), digits),
 								 " [",
-								 format(round(median(x, na.rm=TRUE), digits), scientific=FALSE, big.mark=" "),
+								 fn.smart.decimals(median(x, na.rm=TRUE), digits),
 								 "]",
 								 sep="")),
 			  MEDIAN_IQR = ifelse(length(x[!is.na(x)])==0, "-", ## Return "-" if there are no observations to summarise
-						   paste(format(round(median(x, na.rm=TRUE), digits), scientific=FALSE, big.mark=" "),
+						   paste(fn.smart.decimals(median(x, na.rm=TRUE), digits),
 								 " (",
-								 format(round(as.numeric(quantile(x, probs=0.25, na.rm=TRUE)), digits), scientific=FALSE, big.mark=" "),
+								 fn.smart.decimals(as.numeric(quantile(x, probs=0.25, na.rm=TRUE)), digits),
 								 " ; ",
-								 format(round(as.numeric(quantile(x, probs=0.75, na.rm=TRUE)), digits), scientific=FALSE, big.mark=" "),
+								 fn.smart.decimals(as.numeric(quantile(x, probs=0.75, na.rm=TRUE)), digits),
 								 ")",
 								 sep="")),
 			  ## As above, return "-" if there are no observations to summarise
@@ -297,7 +361,8 @@ summarize.2w.cont <- function(x, vars, byvar, sigdig=3, digits=2, digits.p=3)
 		## Else if >2 levels, use Kruskal Wallis
 		else if (length(unique(x[[byvar]])) > 2)
 		{
-			test <- kruskal.test(as.formula(paste0(var,"~",byvar)), data=x)
+			#test <- kruskal.test(as.formula(paste0(var,"~",byvar)), data=x)
+			test <- fn.safe.kruskal(x=x, var=var, byvar=byvar)
 			tmp.test <- data.frame(list(REF = var,
 									    BY = byvar,
 										DIFF = "-",
@@ -493,7 +558,7 @@ fn.summarize.2w.cat <- function(x, vars, byvar, digits=0, digits.p=3)
 							   BY = byvar,
 							   pval = format(signif(test[["p.value"]], digits.p), scientific=FALSE),
 							   pval_fmt = fn.format.pval(test[["p.value"]], digits=digits.p),
-							   ALT = "-',
+							   ALT = "-",
 							   TEST = test[["method"]],
 							   WARNING = ifelse("WarningMsg" %in% names(test), test[["WarningMsg"]], "-")
 							   ), 
@@ -536,8 +601,20 @@ summarize.2w.disc <- function(x, vars, byvar, digits=0, digits.p=3)
 	}
 	
 	## Summarize categorical vars and binary vars and return results
-	t1 <- fn.summarize.2w.cat(x=x, vars=catlist, byvar=byvar, digits=digits, digits.p=digits.p)
-	t2 <- fn.summarize.2w.bin(x=x, vars=binlist, byvar=byvar, digits=digits, digits.p=digits.p)
+	## if list is non-empty only
+	if (length(catlist) != 0) {
+		t1 <- fn.summarize.2w.cat(x=x, vars=catlist, byvar=byvar, digits=digits, digits.p=digits.p)
+	}
+	else {
+		t1 <- data.frame()
+	}
+	
+	if (length(binlist) != 0) {
+		t2 <- fn.summarize.2w.bin(x=x, vars=binlist, byvar=byvar, digits=digits, digits.p=digits.p)
+	}
+	else {
+		t2 <- data.frame()
+	}
 	
 	## Count number of observations in each stratum (uses rownames vector as basis, by default. To check if it can lead to issues. Prefered this to using "ID")
 	t0 <- as.data.frame(t(tapply(rownames(x), x[[byvar]], length)))
