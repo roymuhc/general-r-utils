@@ -46,13 +46,13 @@ fn.smart.decimals <- function(x, maxdig=2) {
 	if (is.na(x)) {
 		return(NA)
 	}
-	else if (x < 1) {
+	else if (abs(x) < 1) {
 		return(fn.fmt.decimals(x, maxdig))
 	}
-	else if (x < 10) {
+	else if (abs(x) < 10) {
 		return(fn.fmt.decimals(x, 2))
 	}
-	else if (x < 100) {
+	else if (abs(x) < 100) {
 		return(fn.fmt.decimals(x, 1))
 	}
 	else {
